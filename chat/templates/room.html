@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat Room</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background: #f0f0f0; }
+        .container { max-width: 900px; margin: 0 auto; background: white; min-height: 100vh; }
+        .header { background: #007bff; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .header h2 { margin: 0; }
+        .header a { color: white; text-decoration: none; margin-left: 15px; }
+        .header a:hover { text-decoration: underline; }
+        #chat-messages { height: 500px; padding: 20px; overflow-y: auto; background: #f9f9f9; border-bottom: 1px solid #ddd; }
+        .message { margin: 10px 0; padding: 8px; background: white; border-radius: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); position: relative; }
+        .message.private { background: #e3f2fd; border-left: 4px solid #2196f3; }
+        .username { font-weight: bold; color: #007bff; }
+        .private-indicator { color: #2196f3; font-size: 12px; font-style: italic; }
+        .timestamp { color: #666; font-size: 12px; margin-left: 10px; }
+        .delete-btn { position: absolute; top: 5px; right: 5px; background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; font-size: 10px; cursor: pointer; }
+        .delete-btn:hover { background: #c82333; }
+        .file-attachment { margin: 5px 0; padding: 8px; background: #f8f9fa; border-radius: 4px; border: 1px solid #dee2e6; }
+        .file-link { color: #007bff; text-decoration: none; }
+        .file-link:hover { text-decoration: underline; }
+        .file-info { font-size: 12px; color: #666; }
+        .image-preview { max-width: 200px; max-height: 200px; border-radius: 4px; }
+        .input-area { padding: 20px; background: white; }
+        .message-form { display: flex; gap: 10px; margin-bottom: 10px; }
+        #message-input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
+        #recipient-select { padding: 12px; border: 1px solid #ddd; border-radius: 5px; }
+        #file-input { padding: 8px; border: 1px solid #ddd; border-radius: 5px; }
+        #send-btn { padding: 12px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        #send-btn:hover { background: #0056b3; }
+        .welcome { color: #ccc; }
+        .file-upload-area { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>💬 Chat Room</h2>
+            <div>
+                <span class="welcome">Welcome, {{ user.username }}!</span>
+                <a href="{% url 'complete_profile' %}">Profile</a>
+                <a href="{% url 'logout' %}">Logout</a>
+            </div>
+        </div>
+        
+        <div id="chat-messages">
+            {% for message in messages %}
+                <div class="message {% if message.is_private %}private{% endif %}" data-message-id="{{ message.id }}">
+                    {% if message.user == user %}
+                        <button class="delete-btn" onclick="deleteMessage({{ message.id }})">×</button>
+                    {% endif %}
+                    <span class="username">{{ message.user.username }}:</span>
+                    {% if message.is_private and message.recipient %}
+                        <span class="private-indicator">(Private to {{ message.recipient.username }})</span>
+                    {% endif %}
+                    
+                    {% if message.message %}
+                        {{ message.message }}
+                    {% endif %}
+                    
+                    {% if message.file %}
+                        <div class="file-attachment">
+                            {% if message.get_file_type == 'image' %}
+                                <img src="{{ message.file.url }}" alt="{{ message.file_name }}" class="image-preview">
+                            {% else %}
+                                <a href="{{ message.file.url }}" target="_blank" class="file-link">
+                                    📎 {{ message.file_name }}
+                                </a>
+                            {% endif %}
+                            <div class="file-info">{{ message.get_file_size }}</div>
+                        </div>
+                    {% endif %}
+                    
+                    <span class="timestamp">{{ message.timestamp|date:"H:i" }}</span>
+                </div>
+            {% endfor %}
+        </div>
+        
+        <div class="input-area">
+            <form id="message-form" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="message-form">
+                    <select id="recipient-select" name="recipient_id">
+                        <option value="">Public Message</option>
+                        {% for user in users %}
+                            <option value="{{ user.id }}">Private to {{ user.username }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="text" id="message-input" name="message" placeholder="Type your message...">
+                    <button type="submit" id="send-btn">Send</button>
+                </div>
+                <div class="file-upload-area">
+                    <input type="file" id="file-input" name="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt">
+                    <small style="color: #666;">Max 10MB - Images, videos, audio, documents</small>
+                </div>
+            </form>
+            <small style="color: #666;">Select a user for private messaging, or leave as "Public Message" for everyone to see.</small>
+        </div>
+    </div>
+
+    <script>
+        const messageForm = document.getElementById('message-form');
+        const messageInput = document.getElementById('message-input');
+        const fileInput = document.getElementById('file-input');
+        const chatMessages = document.getElementById('chat-messages');
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        function deleteMessage(messageId) {
+            if (confirm('Are you sure you want to delete this message?')) {
+                fetch(`/delete_message/${messageId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        loadMessages();
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            }
+        }
+
+        messageForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(messageForm);
+            
+            // Check if we have either message or file
+            if (!formData.get('message') && !formData.get('file').name) {
+                alert('Please enter a message or select a file');
+                return;
+            }
+
+            fetch('{% url "send_message" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    messageInput.value = '';
+                    fileInput.value = '';
+                    loadMessages();
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to send message'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error sending message');
+            });
+        });
+
+        function loadMessages() {
+            fetch('{% url "get_messages" %}')
+            .then(response => response.json())
+            .then(data => {
+                chatMessages.innerHTML = '';
+                data.messages.forEach(msg => {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = `message ${msg.is_private ? 'private' : ''}`;
+                    messageDiv.setAttribute('data-message-id', msg.id);
+                    
+                    let privateIndicator = '';
+                    if (msg.is_private && msg.recipient) {
+                        privateIndicator = `<span class="private-indicator">(Private to ${msg.recipient})</span>`;
+                    }
+                    
+                    let deleteButton = '';
+                    if (msg.can_delete) {
+                        deleteButton = `<button class="delete-btn" onclick="deleteMessage(${msg.id})">×</button>`;
+                    }
+                    
+                    let fileContent = '';
+                    if (msg.has_file) {
+                        if (msg.file_type === 'image') {
+                            fileContent = `
+                                <div class="file-attachment">
+                                    <img src="${msg.file_url}" alt="${msg.file_name}" class="image-preview">
+                                    <div class="file-info">${msg.file_size}</div>
+                                </div>
+                            `;
+                        } else {
+                            fileContent = `
+                                <div class="file-attachment">
+                                    <a href="${msg.file_url}" target="_blank" class="file-link">
+                                        📎 ${msg.file_name}
+                                    </a>
+                                    <div class="file-info">${msg.file_size}</div>
+                                </div>
+                            `;
+                        }
+                    }
+                    
+                    messageDiv.innerHTML = `
+                        ${deleteButton}
+                        <span class="username">${msg.user}:</span>
+                        ${privateIndicator}
+                        ${msg.message}
+                        ${fileContent}
+                        <span class="timestamp">${msg.timestamp}</span>
+                    `;
+                    chatMessages.appendChild(messageDiv);
+                });
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        // Auto-refresh messages every 3 seconds
+        setInterval(loadMessages, 3000);
+        
+        // Load messages on page load
+        loadMessages();
+        
+        // Auto-scroll to bottom
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    </script>
+</body>
+</html>

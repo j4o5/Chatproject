@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat - Select User</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background: #f0f0f0; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; min-height: 100vh; }
+        .header { background: #007bff; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .header h2 { margin: 0; }
+        .header a { color: white; text-decoration: none; margin-left: 15px; }
+        .header a:hover { text-decoration: underline; }
+        .content { display: flex; }
+        .sidebar { width: 300px; border-right: 1px solid #ddd; }
+        .main { flex: 1; padding: 20px; }
+        .user-list, .conversation-list { padding: 0; }
+        .user-item, .conversation-item { 
+            display: block; 
+            padding: 15px 20px; 
+            border-bottom: 1px solid #eee; 
+            text-decoration: none; 
+            color: #333; 
+            transition: background 0.2s;
+        }
+        .user-item:hover, .conversation-item:hover { background: #f8f9fa; }
+        .online-indicator { 
+            display: inline-block; 
+            width: 8px; 
+            height: 8px; 
+            background: #28a745; 
+            border-radius: 50%; 
+            margin-right: 8px; 
+        }
+        .offline-indicator { 
+            display: inline-block; 
+            width: 8px; 
+            height: 8px; 
+            background: #6c757d; 
+            border-radius: 50%; 
+            margin-right: 8px; 
+        }
+        .unread-badge {
+            background: #dc3545;
+            color: white;
+            border-radius: 10px;
+            padding: 2px 6px;
+            font-size: 12px;
+            margin-left: auto;
+        }
+        .conversation-preview {
+            color: #666;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        .tab-buttons {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+        }
+        .tab-button {
+            flex: 1;
+            padding: 15px;
+            background: #f8f9fa;
+            border: none;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+        .tab-button.active {
+            background: white;
+            border-bottom-color: #007bff;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>💬 Chat</h2>
+            <div>
+                <span>Welcome, {{ user.username }}!</span>
+                <a href="{% url 'complete_profile' %}">Profile</a>
+                <a href="{% url 'logout' %}">Logout</a>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="sidebar">
+                <div class="tab-buttons">
+                    <button class="tab-button active" onclick="showTab('conversations')">Chats</button>
+                    <button class="tab-button" onclick="showTab('users')">Users</button>
+                </div>
+                
+                <div id="conversations" class="tab-content active">
+                    <div class="conversation-list">
+                        {% for conversation in conversations %}
+                            <a href="{% url 'chat_room' conversation.other_user.id %}" class="conversation-item">
+                                <div style="display: flex; align-items: center;">
+                                    {% if conversation.other_user.profile.is_online %}
+                                        <span class="online-indicator"></span>
+                                    {% else %}
+                                        <span class="offline-indicator"></span>
+                                    {% endif %}
+                                    <strong>{{ conversation.other_user.username }}</strong>
+                                    {% if conversation.unread_count > 0 %}
+                                        <span class="unread-badge">{{ conversation.unread_count }}</span>
+                                    {% endif %}
+                                </div>
+                                {% if conversation.last_message %}
+                                    <div class="conversation-preview">
+                                        {{ conversation.last_message.message|truncatechars:50 }}
+                                    </div>
+                                {% endif %}
+                            </a>
+                        {% empty %}
+                            <div style="padding: 20px; text-align: center; color: #666;">
+                                No conversations yet. Start chatting with someone!
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <div id="users" class="tab-content">
+                    <div class="user-list">
+                        {% for user in users %}
+                            <a href="{% url 'start_conversation' user.id %}" class="user-item">
+                                {% if user.profile.is_online %}
+                                    <span class="online-indicator"></span>
+                                {% else %}
+                                    <span class="offline-indicator"></span>
+                                {% endif %}
+                                {{ user.username }}
+                                {% if user.profile.is_online %}
+                                    <small style="color: #28a745;">(Online)</small>
+                                {% else %}
+                                    <small style="color: #6c757d;">(Last seen: {{ user.profile.last_seen|timesince }} ago)</small>
+                                {% endif %}
+                            </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="main">
+                <div style="text-align: center; color: #666; margin-top: 100px;">
+                    <h3>Select a user to start chatting</h3>
+                    <p>Choose someone from your conversations or start a new chat from the Users tab.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>
