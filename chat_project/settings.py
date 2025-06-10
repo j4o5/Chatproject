@@ -10,7 +10,7 @@ DEBUG = True
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
-    'chatapp-production-50ad.up.railway.app'
+    'https://chatapp-production-50ad.up.railway.app'
 ]
 
 
