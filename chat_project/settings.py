@@ -8,10 +8,11 @@ SECRET_KEY = 'django-insecure-your-secret-key-here-change-in-production'
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    'localhost',
-    '127.0.0.1',
-    'https://chatapp-production-50ad.up.railway.app'
+    "localhost",
+    "127.0.0.1",
+    "chatapp-production-50ad.up.railway.app"
 ]
+
 
 
 
